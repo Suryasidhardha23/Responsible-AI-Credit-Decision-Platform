@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h1 class="h4">Responsible AI Credit Decision Platform</h1>
+        <p class="text-muted">An enterprise-grade internal banking application for model development, explainability, fairness, and prediction serving.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Access</h2>
+        <ul>
+          <li><a href="/accounts/login/">Login</a></li>
+          <li><a href="/accounts/">Dashboard</a></li>
+          <li><a href="/datasets/">Datasets</a></li>
+          <li><a href="/api/health/">API health</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

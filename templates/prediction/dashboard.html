@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Prediction Portal{% endblock %}
+{% block content %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h1 class="h4">Loan Officer Prediction Portal</h1>
+    <p class="text-muted">Predictions use the latest trained model and return an explanation for the decision.</p>
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      <div class="col-md-4">
+        <label class="form-label">Applicant Name</label>
+        <input class="form-control" name="applicant_name">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Income</label>
+        <input class="form-control" name="income" type="number" value="50000">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Age</label>
+        <input class="form-control" name="age" type="number" value="35">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Credit History</label>
+        <select class="form-select" name="credit_history">
+          <option value="good">Good</option>
+          <option value="bad">Bad</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Loan Amount</label>
+        <input class="form-control" name="loan_amount" type="number" value="10000">
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <button class="btn btn-primary w-100" type="submit">Run Prediction</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if result %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h2 class="h5">Prediction Result</h2>
+    <p><strong>Applicant:</strong> {{ result.applicant_name }}</p>
+    <p><strong>Decision:</strong> {{ result.prediction }}</p>
+    <p><strong>Approval Probability:</strong> {{ result.probability }}</p>
+    <p><strong>Confidence:</strong> {{ result.confidence }}</p>
+    <p><strong>Explanation:</strong> {{ result.explanation }}</p>
+    <p><strong>Important Features:</strong> {{ result.important_features|join:", " }}</p>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h2 class="h5">Responsible AI Context</h2>
+    <p><strong>Protected Attribute:</strong> {{ result.fairness_context.protected_attribute }}</p>
+    <p><strong>Fairness Note:</strong> {{ result.fairness_context.explanation }}</p>
+    <p><strong>Demographic Parity Difference:</strong> {{ result.fairness_context.fairness_metrics.demographic_parity_difference }}</p>
+    <p><strong>Equal Opportunity Difference:</strong> {{ result.fairness_context.fairness_metrics.equal_opportunity_difference }}</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

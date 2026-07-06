@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Account Dashboard{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h1 class="h4">Welcome, {{ user.username }}</h1>
+    <p class="text-muted">Role: {{ user.get_role_display }}</p>
+    <p>This dashboard is the entry point for the Responsible AI credit decision workflow.</p>
+  </div>
+</div>
+{% endblock %}

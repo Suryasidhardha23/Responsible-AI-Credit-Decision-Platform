@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Model Training{% endblock %}
+{% block content %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h1 class="h4">Model Development Workspace</h1>
+    <p class="text-muted">This admin-only workflow manages dataset-based model training and registry updates.</p>
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      <div class="col-md-4">
+        <label class="form-label">Version</label>
+        <input type="text" name="version" class="form-control" value="v1.0" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Dataset</label>
+        <select name="dataset_id" class="form-select">
+          {% for dataset in datasets %}
+          <option value="{{ dataset.id }}">{{ dataset.name }}</option>
+          {% empty %}
+          <option value="">No datasets available</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Target Column</label>
+        <input type="text" name="target_column" class="form-control" value="target">
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-primary w-100" type="submit">Train Model</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if latest_model %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h2 class="h5">Latest Training Result</h2>
+    <p><strong>Version:</strong> {{ latest_model.version }}</p>
+    <p><strong>Accuracy:</strong> {{ metrics.accuracy|floatformat:4 }}</p>
+    <p><strong>F1:</strong> {{ metrics.f1_score|floatformat:4 }}</p>
+    <p><strong>ROC AUC:</strong> {{ metrics.roc_auc|floatformat:4 }}</p>
+    <p><strong>Artifact:</strong> {{ latest_model.artifact_path }}</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h2 class="h5">Registered Model Versions</h2>
+    <ul class="list-group">
+      {% for version in versions %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <span>{{ version.name }} {{ version.version }}</span>
+        <span class="badge bg-info">{{ version.status }}</span>
+      </li>
+      {% empty %}
+      <li class="list-group-item">No versions registered yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
