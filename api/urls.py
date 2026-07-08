@@ -7,6 +7,8 @@ from .training_views import (
     ActivateModelAPIView,
     CompareModelsAPIView,
     DeactivateModelAPIView,
+    ExplainModelAPIView,
+    FairnessAuditAPIView,
     GetActiveModelAPIView,
     ModelComparisonViewSet,
     ModelVersionViewSet,
@@ -25,6 +27,8 @@ urlpatterns = [
     path('compare/', CompareModelsAPIView.as_view(), name='compare-models'),
     path('models/<int:model_version_id>/activate/', ActivateModelAPIView.as_view(), name='activate-model'),
     path('models/<int:model_version_id>/deactivate/', DeactivateModelAPIView.as_view(), name='deactivate-model'),
+    path('models/<int:model_version_id>/explain/', ExplainModelAPIView.as_view(), name='explain-model'),
+    path('models/<int:model_version_id>/fairness/', FairnessAuditAPIView.as_view(), name='fairness-audit'),
     path('active-model/', GetActiveModelAPIView.as_view(), name='get-active-model'),
     path('', include(router.urls)),
 ]

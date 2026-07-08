@@ -11,6 +11,8 @@ from rest_framework.viewsets import ModelViewSet
 
 from dataset_manager.models import UploadedDataset
 from training.comparison_service import ModelComparisonService
+from training.explainability_service import SHAPExplainabilityService
+from training.fairness_service import FairnessAuditService
 from training.models import ModelComparison, ModelVersion
 from training.serializers import (
     CompareModelsRequestSerializer,
@@ -309,3 +311,41 @@ class GetActiveModelAPIView(APIView):
                 {'error': 'No active model found'},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class ExplainModelAPIView(APIView):
+    """Generate SHAP explainability for a model version."""
+
+    permission_classes = [AdminOnlyPermission]
+
+    def post(self, request, model_version_id):
+        try:
+            model_version = ModelVersion.objects.get(id=model_version_id)
+            service = SHAPExplainabilityService()
+            explanation = service.generate_explanation(model_version, sample_size=request.data.get('sample_size', 50))
+            return Response({'message': 'Explanation generated', 'explanation': explanation}, status=status.HTTP_200_OK)
+        except ModelVersion.DoesNotExist:
+            return Response({'error': 'Model not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as exc:
+            logger.error('Explainability generation failed: %s', exc, exc_info=True)
+            return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FairnessAuditAPIView(APIView):
+    """Generate fairness audit results for a model version."""
+
+    permission_classes = [AdminOnlyPermission]
+
+    def post(self, request, model_version_id):
+        try:
+            model_version = ModelVersion.objects.get(id=model_version_id)
+            protected_attribute = request.data.get('protected_attribute', 'sex')
+            proxy_features = request.data.get('proxy_features', [])
+            service = FairnessAuditService()
+            audit = service.audit_model(model_version, protected_attribute=protected_attribute, proxy_features=proxy_features)
+            return Response({'message': 'Fairness audit generated', 'audit': audit}, status=status.HTTP_200_OK)
+        except ModelVersion.DoesNotExist:
+            return Response({'error': 'Model not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as exc:
+            logger.error('Fairness audit failed: %s', exc, exc_info=True)
+            return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

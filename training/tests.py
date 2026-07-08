@@ -12,6 +12,8 @@ from django.test import TestCase
 from accounts.models import UserProfile
 from dataset_manager.models import UploadedDataset
 from training.comparison_service import ModelComparisonService
+from training.explainability_service import SHAPExplainabilityService
+from training.fairness_service import FairnessAuditService
 from training.models import ModelVersion
 from training.services import ModelTrainingService
 
@@ -137,6 +139,92 @@ class ModelTrainingServiceTestCase(TestCase):
         assert 'false_positives' in cm
         assert 'false_negatives' in cm
         assert 'true_positives' in cm
+
+
+class ExplainabilityAndFairnessServiceTestCase(TestCase):
+    """Test explainability and fairness services."""
+
+    def setUp(self):
+        self.user = UserProfile.objects.create_user(
+            username='fairnessuser',
+            email='fairness@example.com',
+            password='testpass123',
+            role='admin',
+        )
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.dataset_path = Path(self.temp_dir.name) / 'fairness_data.csv'
+
+        np.random.seed(7)
+        n_samples = 220
+        data = {
+            'age': np.random.randint(22, 65, n_samples),
+            'income': np.random.randint(20000, 130000, n_samples),
+            'debt_to_income': np.random.uniform(0.1, 0.8, n_samples),
+            'employment_years': np.random.randint(0, 15, n_samples),
+            'sex': np.random.choice(['male', 'female'], n_samples),
+            'zip_code': np.random.choice(['A', 'B', 'C'], n_samples),
+            'target': np.random.choice([0, 1], n_samples, p=[0.45, 0.55]),
+        }
+        df = pd.DataFrame(data)
+        df.to_csv(self.dataset_path, index=False)
+
+        training_service = ModelTrainingService()
+        result = training_service.train_model(
+            str(self.dataset_path),
+            'target',
+            algorithm='logistic_regression',
+        )
+
+        self.dataset = UploadedDataset.objects.create(
+            name='Fairness Dataset',
+            file_name=self.dataset_path.name,
+            file_path=str(self.dataset_path),
+            row_count=len(pd.read_csv(self.dataset_path)),
+            column_count=len(pd.read_csv(self.dataset_path).columns),
+            target_column='target',
+            is_valid=True,
+        )
+
+        self.model_version = ModelVersion.objects.create(
+            version='v1.2',
+            name='Fairness Test Model',
+            algorithm='logistic_regression',
+            created_by=self.user,
+            dataset=self.dataset,
+            target_column='target',
+            artifact_path=result['artifact_path'],
+            preprocessing_pipeline_path=result['preprocessing_pipeline_path'],
+            accuracy=result['metrics']['accuracy'],
+            precision=result['metrics']['precision'],
+            recall=result['metrics']['recall'],
+            f1_score=result['metrics']['f1_score'],
+            roc_auc=result['metrics']['roc_auc'],
+            pr_auc=result['metrics']['pr_auc'],
+            cv_score_mean=result['cv_results']['accuracy_mean'],
+            cv_score_std=result['cv_results']['accuracy_std'],
+            feature_importance=result['feature_importance'],
+            hyperparameters=result['hyperparameters'],
+        )
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_generate_explanation(self):
+        explainability_service = SHAPExplainabilityService()
+        explanation = explainability_service.generate_explanation(self.model_version, sample_size=20)
+
+        self.assertIn('summary_plot_path', explanation)
+        self.assertIn('top_features', explanation)
+        self.assertGreater(len(explanation['top_features']), 0)
+
+    def test_audit_fairness(self):
+        fairness_service = FairnessAuditService()
+        audit = fairness_service.audit_model(self.model_version, protected_attribute='sex', proxy_features=['zip_code'])
+
+        self.assertIn('metrics', audit)
+        self.assertIn('demographic_parity_difference', audit['metrics'])
+        self.assertIn('explanations', audit)
+        self.assertIn('proxy_analysis', audit)
 
 
 class ModelVersionTests(TestCase):
