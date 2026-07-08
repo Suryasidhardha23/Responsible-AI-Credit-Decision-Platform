@@ -1,27 +1,99 @@
 {% extends 'base.html' %}
-{% block title %}Home{% endblock %}
+{% block title %}Responsible AI Credit Decision Platform{% endblock %}
 {% block content %}
-<div class="row g-4">
-  <div class="col-md-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-body">
-        <h1 class="h4">Responsible AI Credit Decision Platform</h1>
-        <p class="text-muted">An enterprise-grade internal banking application for model development, explainability, fairness, and prediction serving.</p>
-      </div>
+<!-- Hero Section -->
+<div class="row align-items-center mb-5 py-4">
+  <div class="col-lg-7">
+    <h1 class="display-5 fw-bold mb-3" style="color:var(--brand-navy); line-height:1.2;">
+      Enterprise-Grade<br>
+      <span style="color:var(--brand-teal);">Responsible AI</span><br>
+      Credit Underwriting Platform
+    </h1>
+    <p class="lead text-muted mb-4">
+      A production-quality ML platform for regulated financial institutions.
+      Combines explainability, fairness auditing, and bias mitigation with
+      enterprise MLOps best practices.
+    </p>
+    <div class="d-flex flex-wrap gap-3">
+      {% if user.is_authenticated %}
+        {% if user.role == 'admin' %}
+          <a class="btn btn-brand btn-lg px-4" href="/training/">
+            <i class="bi bi-cpu-fill me-2"></i>Open Training Dashboard
+          </a>
+          <a class="btn btn-outline-secondary btn-lg px-4" href="/datasets/">
+            <i class="bi bi-database-fill-up me-2"></i>Manage Datasets
+          </a>
+        {% else %}
+          <a class="btn btn-brand btn-lg px-4" href="/predict/">
+            <i class="bi bi-person-check-fill me-2"></i>Start Underwriting
+          </a>
+        {% endif %}
+      {% else %}
+        <a class="btn btn-brand btn-lg px-4" href="/accounts/login/">
+          <i class="bi bi-box-arrow-in-right me-2"></i>Sign In to Get Started
+        </a>
+      {% endif %}
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-body">
-        <h2 class="h5">Access</h2>
-        <ul>
-          <li><a href="/accounts/login/">Login</a></li>
-          <li><a href="/accounts/">Dashboard</a></li>
-          <li><a href="/datasets/">Datasets</a></li>
-          <li><a href="/api/health/">API health</a></li>
-        </ul>
+  <div class="col-lg-5 d-none d-lg-flex justify-content-center">
+    <div class="p-4 rounded-4" style="background:linear-gradient(135deg,#0d3d60,#2ec4b6);width:340px;height:280px;" class="d-flex align-items-center justify-content-center">
+      <div class="text-center text-white">
+        <i class="bi bi-shield-lock-fill" style="font-size:5rem;opacity:0.85;"></i>
+        <p class="fw-semibold mt-2 mb-0">AI-Powered Credit Decisions</p>
+        <p class="small opacity-75">Fair · Explainable · Auditable</p>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Feature Cards -->
+<div class="row g-4 mb-5">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 p-1">
+      <div class="card-body p-4">
+        <div class="mb-3" style="color:var(--brand-teal);font-size:2rem;"><i class="bi bi-cpu-fill"></i></div>
+        <h5 class="fw-bold" style="color:var(--brand-navy);">Multi-Algorithm Training</h5>
+        <p class="text-muted small">Logistic Regression, Decision Tree, Random Forest, and Gradient Boosting with automated hyperparameter optimization and cross-validation.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 p-1">
+      <div class="card-body p-4">
+        <div class="mb-3" style="color:#e71d36;font-size:2rem;"><i class="bi bi-graph-up-arrow"></i></div>
+        <h5 class="fw-bold" style="color:var(--brand-navy);">Explainable AI (SHAP)</h5>
+        <p class="text-muted small">Every prediction is accompanied by local SHAP feature attributions, explaining why each application was approved or rejected in plain English.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 p-1">
+      <div class="card-body p-4">
+        <div class="mb-3" style="color:#6a1a5e;font-size:2rem;"><i class="bi bi-shield-check"></i></div>
+        <h5 class="fw-bold" style="color:var(--brand-navy);">Responsible AI & Fairness</h5>
+        <p class="text-muted small">Demographic parity audits, disparate impact analysis, proxy bias detection, and automated bias mitigation via reweighting and threshold optimization.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Cards -->
+{% if user.is_authenticated and user.role == 'admin' %}
+<h4 class="fw-bold mb-3" style="color:var(--brand-navy);">Platform Status</h4>
+<div class="row g-3 mb-4">
+  {% for label, icon, color, val in platform_stats %}
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card card border-0 shadow-sm">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="stat-value">{{ val }}</div>
+          <div class="stat-label">{{ label }}</div>
+        </div>
+        <i class="bi bi-{{ icon }} stat-icon" style="color:{{ color }};opacity:0.2;font-size:3rem;"></i>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 {% endblock %}

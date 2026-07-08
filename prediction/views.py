@@ -1,48 +1,76 @@
-import pickle
-from pathlib import Path
-
+import logging
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-
+from django.contrib import messages
 from training.models import ModelVersion
-from .services import ExplainabilityService
+from .models import PredictionRecord
+from .services import PredictionService
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
 def prediction_dashboard(request):
-    latest_model = ModelVersion.objects.filter(status='trained').order_by('-created_at').first()
+    # Retrieve the active model (or latest trained model fallback)
+    active_model = PredictionService.get_active_model()
+    categorical_options = {}
     result = None
 
-    if request.method == 'POST':
-        applicant_name = request.POST.get('applicant_name', '')
-        income = float(request.POST.get('income', 0))
-        age = int(request.POST.get('age', 0))
-        credit_history = request.POST.get('credit_history', 'good')
-        loan_amount = float(request.POST.get('loan_amount', 0))
+    if active_model:
+        # Get dynamic options for categorical dropdowns
+        categorical_options = PredictionService.get_categorical_options(active_model)
+        
+        if request.method == 'POST':
+            applicant_name = request.POST.get('applicant_name', 'Unnamed Applicant')
+            
+            # Retrieve values from POST data
+            input_data = {}
+            for key in request.POST:
+                if key != 'csrfmiddlewaretoken' and key != 'applicant_name':
+                    val = request.POST.get(key)
+                    if val:
+                        input_data[key] = val
 
-        feature_row = {
-            'income': income,
-            'age': age,
-            'credit_history': credit_history,
-            'loan_amount': loan_amount,
-        }
+            try:
+                # Call prediction service
+                service = PredictionService()
+                pred_result = service.predict_and_explain(active_model, input_data)
+                
+                # Save prediction record with full SHAP + fairness context
+                record = PredictionRecord.objects.create(
+                    applicant_name=applicant_name,
+                    prediction=pred_result['prediction'],
+                    probability=pred_result['probability'],
+                    shap_explanation=pred_result['shap_explanation'],
+                    input_features=pred_result['feature_row'],
+                    fairness_context=pred_result['fairness_context'],
+                    model_version=active_model,
+                    created_by=request.user
+                )
+                
+                result = {
+                    'record_id': record.id,
+                    'applicant_name': applicant_name,
+                    'prediction': pred_result['prediction'],
+                    'probability': pred_result['probability'],
+                    'confidence': pred_result['confidence'],
+                    'explanation': pred_result['summary'],
+                    'shap_explanation': pred_result['shap_explanation'],
+                    'fairness_context': pred_result['fairness_context'],
+                    'input_data': input_data
+                }
+                messages.success(request, f"Prediction successfully completed for {applicant_name}.")
+            except Exception as e:
+                logger.error(f"Prediction failed: {e}", exc_info=True)
+                messages.error(request, f"Error running prediction: {str(e)}")
 
-        if latest_model and Path(latest_model.artifact_path).exists():
-            with open(latest_model.artifact_path, 'rb') as handle:
-                model = pickle.load(handle)
-            probability = float(model.predict_proba([feature_row])[0][1])
-            prediction = 'Approved' if probability >= 0.5 else 'Rejected'
-            explanation_service = ExplainabilityService()
-            explanation = explanation_service.build_explanation(model, feature_row)
-            fairness_context = explanation_service.build_fairness_context(feature_row)
-            result = {
-                'applicant_name': applicant_name,
-                'probability': round(probability, 4),
-                'prediction': prediction,
-                'confidence': round(abs(probability - 0.5) * 2, 4),
-                'explanation': explanation['summary'],
-                'important_features': list(explanation['feature_importance'].keys()),
-                'fairness_context': fairness_context,
-            }
+    # Fetch history for this user
+    history = PredictionRecord.objects.filter(created_by=request.user).order_by('-created_at')[:10]
 
-    return render(request, 'prediction/dashboard.html', {'title': 'Prediction Portal', 'result': result, 'latest_model': latest_model})
+    return render(request, 'prediction/dashboard.html', {
+        'title': 'Loan Officer Portal',
+        'active_model': active_model,
+        'categorical_options': categorical_options,
+        'result': result,
+        'history': history
+    })

@@ -7,8 +7,19 @@ class PredictionRecord(models.Model):
     applicant_name = models.CharField(max_length=255, blank=True)
     prediction = models.CharField(max_length=50)
     probability = models.FloatField(default=0.0)
+    shap_explanation = models.JSONField(default=list, blank=True)
+    input_features = models.JSONField(default=dict, blank=True)
+    fairness_context = models.JSONField(default=dict, blank=True)
+    model_version = models.ForeignKey(
+        'training.ModelVersion', on_delete=models.SET_NULL, null=True, blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='predictions')
+    created_by = models.ForeignKey(
+        UserProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='predictions'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self) -> str:
         return f"{self.applicant_name or 'Applicant'} - {self.prediction}"

@@ -1,63 +1,229 @@
 {% extends 'base.html' %}
-{% block title %}Prediction Portal{% endblock %}
+{% block title %}Loan Officer Portal | Responsible AI Credit Platform{% endblock %}
 {% block content %}
-<div class="card shadow-sm mb-4">
-  <div class="card-body">
-    <h1 class="h4">Loan Officer Prediction Portal</h1>
-    <p class="text-muted">Predictions use the latest trained model and return an explanation for the decision.</p>
-    <form method="post" class="row g-3">
-      {% csrf_token %}
-      <div class="col-md-4">
-        <label class="form-label">Applicant Name</label>
-        <input class="form-control" name="applicant_name">
+<div class="row">
+  <!-- Left Column: Input Form & Result -->
+  <div class="col-lg-8 col-md-12 mb-4">
+    <!-- Active Model Alert -->
+    <div class="card shadow-sm border-0 bg-light mb-4">
+      <div class="card-body d-flex justify-content-between align-items-center py-3">
+        <div>
+          <h5 class="card-title mb-1 text-dark">Production Model</h5>
+          {% if active_model %}
+            <span class="badge bg-success">Active: {{ active_model.name }} ({{ active_model.version }})</span>
+            <small class="text-muted ms-2">Algorithm: {{ active_model.get_algorithm_display }} | Accuracy: {{ active_model.accuracy|floatformat:4 }}</small>
+          {% else %}
+            <span class="badge bg-danger">No Active Model</span>
+            <small class="text-danger ms-2">Predictions are currently unavailable. Please ask an administrator to deploy a model.</small>
+          {% endif %}
+        </div>
       </div>
-      <div class="col-md-4">
-        <label class="form-label">Income</label>
-        <input class="form-control" name="income" type="number" value="50000">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Age</label>
-        <input class="form-control" name="age" type="number" value="35">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Credit History</label>
-        <select class="form-select" name="credit_history">
-          <option value="good">Good</option>
-          <option value="bad">Bad</option>
-        </select>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Loan Amount</label>
-        <input class="form-control" name="loan_amount" type="number" value="10000">
-      </div>
-      <div class="col-md-4 d-flex align-items-end">
-        <button class="btn btn-primary w-100" type="submit">Run Prediction</button>
-      </div>
-    </form>
-  </div>
-</div>
+    </div>
 
-{% if result %}
-<div class="card shadow-sm mb-4">
-  <div class="card-body">
-    <h2 class="h5">Prediction Result</h2>
-    <p><strong>Applicant:</strong> {{ result.applicant_name }}</p>
-    <p><strong>Decision:</strong> {{ result.prediction }}</p>
-    <p><strong>Approval Probability:</strong> {{ result.probability }}</p>
-    <p><strong>Confidence:</strong> {{ result.confidence }}</p>
-    <p><strong>Explanation:</strong> {{ result.explanation }}</p>
-    <p><strong>Important Features:</strong> {{ result.important_features|join:", " }}</p>
-  </div>
-</div>
+    {% if active_model %}
+    <!-- Input Form -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-dark text-white py-3">
+        <h5 class="card-title mb-0"><i class="bi bi-person-fill-add"></i> New Credit Applicant Evaluation</h5>
+      </div>
+      <div class="card-body">
+        <form method="post" class="needs-validation">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-muted">Applicant Full Name</label>
+              <input class="form-control" name="applicant_name" placeholder="John Doe" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-semibold text-muted">Age (Years)</label>
+              <input class="form-control" name="age" type="number" min="18" max="100" value="35" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-semibold text-muted">Gender</label>
+              <select class="form-select" name="sex">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            
+            <div class="col-md-4">
+              <label class="form-label fw-semibold text-muted">Requested Credit Amount (DM)</label>
+              <input class="form-control" name="loan_amount" type="number" min="100" max="100000" value="5000" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold text-muted">Loan Duration (Months)</label>
+              <input class="form-control" name="duration" type="number" min="1" max="120" value="12" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold text-muted">Existing Credits at Bank</label>
+              <input class="form-control" name="existing_loans" type="number" min="1" max="10" value="1" required>
+            </div>
 
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h2 class="h5">Responsible AI Context</h2>
-    <p><strong>Protected Attribute:</strong> {{ result.fairness_context.protected_attribute }}</p>
-    <p><strong>Fairness Note:</strong> {{ result.fairness_context.explanation }}</p>
-    <p><strong>Demographic Parity Difference:</strong> {{ result.fairness_context.fairness_metrics.demographic_parity_difference }}</p>
-    <p><strong>Equal Opportunity Difference:</strong> {{ result.fairness_context.fairness_metrics.equal_opportunity_difference }}</p>
+            <!-- Dynamic Categorical Fields from active model dataset -->
+            {% for field, options in categorical_options.items %}
+              {% if field != 'sex' and field != 'age_group' and field != 'personal_status' %}
+              <div class="col-md-4">
+                <label class="form-label fw-semibold text-muted">{{ field|title|replace:"_," }}</label>
+                <select class="form-select" name="{{ field }}">
+                  {% for opt in options %}
+                    <option value="{{ opt }}">{{ opt }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              {% endif %}
+            {% endfor %}
+            
+            <div class="col-12 mt-4">
+              <button class="btn btn-primary btn-lg w-100 py-3 shadow" type="submit">
+                <i class="bi bi-cpu"></i> Execute AI Underwriting Prediction
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Prediction Results & SHAP Explanation -->
+    {% if result %}
+    <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+      <div class="card-header {% if result.prediction == 'Approved' %}bg-success{% else %}bg-danger{% endif %} text-white py-3">
+        <h4 class="card-title mb-0 d-flex justify-content-between align-items-center">
+          <span>AI Decision: {{ result.prediction }}</span>
+          <span class="badge bg-white text-dark">{{ result.probability|percent }} Probability</span>
+        </h4>
+      </div>
+      <div class="card-body">
+        <div class="row align-items-center mb-4">
+          <div class="col-md-6 border-end">
+            <h6 class="text-muted text-uppercase fw-bold">Probability Gauge</h6>
+            <div class="progress my-3" style="height: 25px;">
+              <div class="progress-bar {% if result.prediction == 'Approved' %}bg-success{% else %}bg-danger{% endif %}" 
+                   role="progressbar" 
+                   style="width: {{ result.probability|multiply:100 }}%" 
+                   aria-valuenow="{{ result.probability|multiply:100 }}" 
+                   aria-valuemin="0" 
+                   aria-valuemax="100">
+                {{ result.probability|multiply:100|floatformat:1 }}%
+              </div>
+            </div>
+            <p class="mb-0 text-muted small">
+              Confidence score: <strong>{{ result.confidence|floatformat:2 }}</strong>. 
+              Approval threshold is set at 50%.
+            </p>
+          </div>
+          <div class="col-md-6 ps-md-4">
+            <h6 class="text-muted text-uppercase fw-bold">Decision Summary</h6>
+            <p class="lead text-dark fs-6">{{ result.explanation }}</p>
+            <a href="/api/reports/prediction/{{ result.record_id }}/pdf/" class="btn btn-outline-dark btn-sm">
+              <i class="bi bi-file-pdf"></i> Download Official Loan Report (PDF)
+            </a>
+          </div>
+        </div>
+
+        <hr>
+
+        <!-- Explainable AI (SHAP Local Attributions) -->
+        <h5 class="fw-bold mt-4 mb-3 text-secondary"><i class="bi bi-graph-up-arrow"></i> Explainable AI: Feature Attributions (SHAP)</h5>
+        <p class="text-muted small">Features pushing the score to the right increase approval probability; features pushing to the left decrease it.</p>
+        
+        <div class="shap-chart py-2">
+          {% for item in result.shap_explanation %}
+            <div class="row mb-3 align-items-center">
+              <div class="col-md-3 text-end fw-semibold text-muted text-truncate" title="{{ item.feature }}">
+                {{ item.feature|title|replace:"_," }} ({{ item.value }})
+              </div>
+              <div class="col-md-7">
+                <div class="d-flex align-items-center" style="height: 20px;">
+                  {% if item.shap_value >= 0 %}
+                    <div style="width: 50%; border-right: 1px solid #ddd; height: 100%;" class="d-flex justify-content-end"></div>
+                    <div style="width: {{ item.shap_value|multiply:100|clamp:0,50 }}%; background-color: #2ec4b6; height: 100%; border-radius: 0 4px 4px 0;" 
+                         class="d-flex align-items-center ps-2 text-white small text-nowrap" 
+                         title="+{{ item.shap_value|floatformat:4 }}">
+                      <span style="font-size: 10px; font-weight: bold;">+{{ item.shap_value|floatformat:2 }}</span>
+                    </div>
+                  {% else %}
+                    <div style="width: 50%; border-right: 1px solid #ddd; height: 100%;" class="d-flex justify-content-end">
+                      <div style="width: {{ item.shap_value|multiply:-100|clamp:0,50 }}%; background-color: #e71d36; height: 100%; border-radius: 4px 0 0 4px;" 
+                           class="d-flex align-items-center justify-content-end pe-2 text-white small text-nowrap" 
+                           title="{{ item.shap_value|floatformat:4 }}">
+                        <span style="font-size: 10px; font-weight: bold;">{{ item.shap_value|floatformat:2 }}</span>
+                      </div>
+                    </div>
+                    <div style="width: 50%; height: 100%;"></div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <hr>
+
+        <!-- Responsible AI Fairness Context -->
+        <h5 class="fw-bold mt-4 text-secondary"><i class="bi bi-shield-check"></i> Responsible AI Context</h5>
+        <div class="alert alert-info border-0 shadow-sm mt-3">
+          <div class="d-flex">
+            <div class="me-3 fs-3 text-info">
+              <i class="bi bi-info-circle-fill"></i>
+            </div>
+            <div>
+              <h6 class="alert-heading fw-bold mb-1">Protected Attribute Audit Summary (Gender)</h6>
+              <p class="mb-2 small text-dark">{{ result.fairness_context.explanation }}</p>
+              <div class="row text-center mt-3 g-2">
+                <div class="col-6 col-md-3">
+                  <div class="p-2 bg-white rounded border">
+                    <div class="fw-bold text-dark">{{ result.fairness_context.fairness_metrics.demographic_parity_difference|floatformat:4 }}</div>
+                    <small class="text-muted d-block" style="font-size: 10px;">Demographic Parity Diff</small>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="p-2 bg-white rounded border">
+                    <div class="fw-bold text-dark">{{ result.fairness_context.fairness_metrics.equal_opportunity_difference|floatformat:4 }}</div>
+                    <small class="text-muted d-block" style="font-size: 10px;">Equal Opportunity Diff</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right Column: Prediction History -->
+  <div class="col-lg-4 col-md-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-secondary text-white py-3">
+        <h5 class="card-title mb-0"><i class="bi bi-clock-history"></i> Recent Underwriting History</h5>
+      </div>
+      <div class="list-group list-group-flush">
+        {% if history %}
+          {% for record in history %}
+            <div class="list-group-item p-3">
+              <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                <h6 class="mb-0 fw-bold">{{ record.applicant_name }}</h6>
+                <span class="badge {% if record.prediction == 'Approved' %}bg-success{% else %}bg-danger{% endif %}">
+                  {{ record.prediction }}
+                </span>
+              </div>
+              <small class="text-muted d-block mb-2">
+                Probability: {{ record.probability|percent }} | Date: {{ record.created_at|date:"M d, Y H:i" }}
+              </small>
+              <a href="/api/reports/prediction/{{ record.id }}/pdf/" class="btn btn-link p-0 text-decoration-none small text-primary">
+                <i class="bi bi-file-pdf"></i> Download PDF Report
+              </a>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="bi bi-journal-x fs-2"></i>
+            <p class="mt-2 mb-0">No recent evaluations found.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
   </div>
 </div>
-{% endif %}
 {% endblock %}

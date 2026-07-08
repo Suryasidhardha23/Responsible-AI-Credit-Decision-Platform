@@ -14,6 +14,13 @@ from .training_views import (
     ModelVersionViewSet,
     TrainModelAPIView,
 )
+from .prediction_views import (
+    PredictAPIView,
+    MitigateModelAPIView,
+    PredictionReportPDFView,
+    ModelCardPDFView,
+    FairnessAuditReportPDFView,
+)
 
 router = DefaultRouter()
 router.register(r'models', ModelVersionViewSet, basename='model')
@@ -30,5 +37,12 @@ urlpatterns = [
     path('models/<int:model_version_id>/explain/', ExplainModelAPIView.as_view(), name='explain-model'),
     path('models/<int:model_version_id>/fairness/', FairnessAuditAPIView.as_view(), name='fairness-audit'),
     path('active-model/', GetActiveModelAPIView.as_view(), name='get-active-model'),
+    # Prediction & Responsible AI endpoints
+    path('predict/', PredictAPIView.as_view(), name='live-predict'),
+    path('mitigate/', MitigateModelAPIView.as_view(), name='mitigate-model'),
+    # PDF Report endpoints
+    path('reports/prediction/<int:record_id>/pdf/', PredictionReportPDFView.as_view(), name='prediction-report-pdf'),
+    path('reports/model-card/<int:model_version_id>/pdf/', ModelCardPDFView.as_view(), name='model-card-pdf'),
+    path('reports/fairness-audit/<int:model_version_id>/pdf/', FairnessAuditReportPDFView.as_view(), name='fairness-audit-pdf'),
     path('', include(router.urls)),
 ]

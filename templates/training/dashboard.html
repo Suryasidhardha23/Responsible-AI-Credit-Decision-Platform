@@ -1,63 +1,318 @@
 {% extends 'base.html' %}
-{% block title %}Model Training{% endblock %}
+{% block title %}Model Training & Registry | Responsible AI Credit Platform{% endblock %}
+
 {% block content %}
-<div class="card shadow-sm mb-4">
-  <div class="card-body">
-    <h1 class="h4">Model Development Workspace</h1>
-    <p class="text-muted">This admin-only workflow manages dataset-based model training and registry updates.</p>
-    <form method="post" class="row g-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-1" style="color:var(--brand-navy);">
+      <i class="bi bi-cpu-fill me-2" style="color:var(--brand-teal);"></i>Model Training & Registry
+    </h1>
+    <p class="text-muted mb-0">Train, compare, evaluate, and deploy ML models for credit underwriting.</p>
+  </div>
+</div>
+
+<!-- ── Train New Model Form ── -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header py-3" style="background:linear-gradient(135deg,#0d3d60,#1a6b8a);">
+    <h5 class="mb-0 text-white fw-semibold"><i class="bi bi-play-circle-fill me-2"></i>Train New Model</h5>
+  </div>
+  <div class="card-body p-4">
+    <form method="post" action="">
       {% csrf_token %}
-      <div class="col-md-4">
-        <label class="form-label">Version</label>
-        <input type="text" name="version" class="form-control" value="v1.0" required>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Dataset</label>
-        <select name="dataset_id" class="form-select">
-          {% for dataset in datasets %}
-          <option value="{{ dataset.id }}">{{ dataset.name }}</option>
-          {% empty %}
-          <option value="">No datasets available</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">Target Column</label>
-        <input type="text" name="target_column" class="form-control" value="target">
-      </div>
-      <div class="col-md-2 d-flex align-items-end">
-        <button class="btn btn-primary w-100" type="submit">Train Model</button>
+      <input type="hidden" name="action" value="train">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold text-muted small text-uppercase">Dataset</label>
+          <select class="form-select" name="dataset_id" required>
+            <option value="">— Select Dataset —</option>
+            {% for ds in datasets %}
+              <option value="{{ ds.id }}">{{ ds.name }} ({{ ds.row_count }} rows)</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold text-muted small text-uppercase">Version</label>
+          <input class="form-control" name="version" placeholder="v1.0" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold text-muted small text-uppercase">Model Name</label>
+          <input class="form-control" name="model_name" placeholder="Credit Model" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold text-muted small text-uppercase">Algorithm</label>
+          <select class="form-select" name="algorithm">
+            <option value="logistic_regression">Logistic Regression</option>
+            <option value="decision_tree">Decision Tree</option>
+            <option value="random_forest" selected>Random Forest</option>
+            <option value="gradient_boosting">Gradient Boosting</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold text-muted small text-uppercase">Target Column</label>
+          <input class="form-control" name="target_column" placeholder="target" value="target">
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="hyperparameter_tuning" id="hp_tune">
+            <label class="form-check-label small" for="hp_tune">HP Tuning</label>
+          </div>
+        </div>
+        <div class="col-12">
+          <button class="btn btn-brand px-4 py-2" type="submit">
+            <i class="bi bi-play-fill me-1"></i> Train Model
+          </button>
+        </div>
       </div>
     </form>
   </div>
 </div>
 
-{% if latest_model %}
-<div class="card shadow-sm mb-4">
-  <div class="card-body">
-    <h2 class="h5">Latest Training Result</h2>
-    <p><strong>Version:</strong> {{ latest_model.version }}</p>
-    <p><strong>Accuracy:</strong> {{ metrics.accuracy|floatformat:4 }}</p>
-    <p><strong>F1:</strong> {{ metrics.f1_score|floatformat:4 }}</p>
-    <p><strong>ROC AUC:</strong> {{ metrics.roc_auc|floatformat:4 }}</p>
-    <p><strong>Artifact:</strong> {{ latest_model.artifact_path }}</p>
+<!-- ── Success / Training Result ── -->
+{% if latest_model and metrics %}
+<div class="alert alert-success border-0 shadow-sm mb-4" role="alert">
+  <div class="d-flex align-items-center gap-3">
+    <i class="bi bi-check-circle-fill fs-3 text-success"></i>
+    <div>
+      <h6 class="mb-1 fw-bold">Training Complete: {{ latest_model.name }} ({{ latest_model.version }})</h6>
+      <div class="d-flex flex-wrap gap-3 mt-1">
+        <span class="badge bg-primary">Accuracy: {{ metrics.accuracy|floatformat:4 }}</span>
+        <span class="badge bg-info">F1: {{ metrics.f1_score|floatformat:4 }}</span>
+        <span class="badge bg-warning text-dark">ROC-AUC: {{ metrics.roc_auc|floatformat:4 }}</span>
+        <span class="badge bg-secondary">Precision: {{ metrics.precision|floatformat:4 }}</span>
+        <span class="badge bg-secondary">Recall: {{ metrics.recall|floatformat:4 }}</span>
+      </div>
+    </div>
+    <a href="/api/reports/model-card/{{ latest_model.id }}/pdf/" class="btn btn-outline-success btn-sm ms-auto">
+      <i class="bi bi-file-pdf me-1"></i>Model Card PDF
+    </a>
   </div>
 </div>
 {% endif %}
 
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h2 class="h5">Registered Model Versions</h2>
-    <ul class="list-group">
-      {% for version in versions %}
-      <li class="list-group-item d-flex justify-content-between align-items-center">
-        <span>{{ version.name }} {{ version.version }}</span>
-        <span class="badge bg-info">{{ version.status }}</span>
-      </li>
-      {% empty %}
-      <li class="list-group-item">No versions registered yet.</li>
-      {% endfor %}
-    </ul>
+<!-- ── Model Registry Table ── -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white py-3 border-bottom">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0 fw-semibold" style="color:var(--brand-navy);">
+        <i class="bi bi-archive-fill me-2" style="color:var(--brand-teal);"></i>Model Registry
+      </h5>
+      <span class="badge bg-light text-dark border">{{ versions|length }} model{% if versions|length != 1 %}s{% endif %}</span>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    {% if versions %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead style="background:#f8fafc;">
+          <tr class="text-muted small text-uppercase">
+            <th class="ps-4 py-3">Version</th>
+            <th>Algorithm</th>
+            <th>Accuracy</th>
+            <th>ROC-AUC</th>
+            <th>F1 Score</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th class="pe-4 text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in versions %}
+          <tr {% if v.is_active %}class="table-success"{% endif %}>
+            <td class="ps-4 fw-bold" style="color:var(--brand-navy);">
+              {{ v.version }}
+              {% if v.is_active %}
+                <span class="badge badge-active ms-1"><i class="bi bi-lightning-fill me-1"></i>LIVE</span>
+              {% endif %}
+            </td>
+            <td><span class="badge bg-light text-dark border">{{ v.get_algorithm_display }}</span></td>
+            <td>{{ v.accuracy|floatformat:4 }}</td>
+            <td>{{ v.roc_auc|floatformat:4 }}</td>
+            <td>{{ v.f1_score|floatformat:4 }}</td>
+            <td>
+              {% if v.status == 'deployed' %}
+                <span class="badge badge-active">{{ v.get_status_display }}</span>
+              {% elif v.status == 'archived' %}
+                <span class="badge badge-archived">{{ v.get_status_display }}</span>
+              {% else %}
+                <span class="badge badge-draft">{{ v.get_status_display }}</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ v.created_at|date:"M d, Y" }}</td>
+            <td class="pe-4 text-end">
+              <div class="d-flex gap-1 justify-content-end flex-wrap">
+                {% if not v.is_active %}
+                  <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="activate">
+                    <input type="hidden" name="model_id" value="{{ v.id }}">
+                    <button type="submit" class="btn btn-sm btn-success px-2 py-1" title="Activate for Production">
+                      <i class="bi bi-lightning-fill"></i> Deploy
+                    </button>
+                  </form>
+                {% else %}
+                  <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="deactivate">
+                    <input type="hidden" name="model_id" value="{{ v.id }}">
+                    <button type="submit" class="btn btn-sm btn-warning px-2 py-1" title="Deactivate">
+                      <i class="bi bi-pause-fill"></i> Deactivate
+                    </button>
+                  </form>
+                {% endif %}
+                {% if v.status != 'archived' %}
+                  <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="archive">
+                    <input type="hidden" name="model_id" value="{{ v.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary px-2 py-1" title="Archive">
+                      <i class="bi bi-archive"></i>
+                    </button>
+                  </form>
+                {% endif %}
+                <a href="/api/reports/model-card/{{ v.id }}/pdf/" class="btn btn-sm btn-outline-dark px-2 py-1" title="Model Card PDF">
+                  <i class="bi bi-file-pdf"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-cpu fs-1 mb-3 d-block opacity-25"></i>
+        <p class="mb-0">No models trained yet. Use the form above to train your first model.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Fairness Audit Panel ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header py-3" style="background:linear-gradient(135deg,#1a6b8a,#2ec4b6);">
+        <h5 class="mb-0 text-white fw-semibold"><i class="bi bi-shield-check me-2"></i>Fairness Audit</h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="fairness_audit">
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-muted small">Model to Audit</label>
+            <select class="form-select" name="audit_model_id" required>
+              <option value="">— Select Model —</option>
+              {% for v in versions %}
+                <option value="{{ v.id }}">{{ v.name }} ({{ v.version }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-muted small">Protected Attribute</label>
+            <select class="form-select" name="protected_attribute">
+              <option value="sex">Gender (sex)</option>
+              <option value="age_group">Age Group (age_group)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-muted small">Proxy Features (comma-separated)</label>
+            <input class="form-control" name="proxy_features" placeholder="zip_code, employment_status">
+          </div>
+          <button class="btn btn-brand w-100" type="submit"><i class="bi bi-search me-1"></i> Run Fairness Audit</button>
+        </form>
+
+        {% if fairness_result %}
+        <hr>
+        <h6 class="fw-bold mt-3 text-secondary">Audit Results</h6>
+        {% for k, v in fairness_result.metrics.items %}
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <span class="small text-muted">{{ k|title|replace:"_," }}</span>
+            <span class="fw-bold {% if v|floatformat:2 == '0.00' %}text-success{% elif v > 0.2 %}text-danger{% else %}text-warning{% endif %}">
+              {{ v|floatformat:4 }}
+            </span>
+          </div>
+        {% endfor %}
+        {% if fairness_result.proxy_analysis %}
+          <p class="small text-muted mt-3 mb-0">
+            <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>
+            Proxy variables detected. Check the full PDF for details.
+          </p>
+        {% endif %}
+        <a href="/api/reports/fairness-audit/{{ audit_model_id }}/pdf/"
+           class="btn btn-outline-dark btn-sm mt-3" data-bs-toggle="tooltip"
+           title="Requires POST; use API for full download">
+          <i class="bi bi-file-pdf me-1"></i> Download Audit Report
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bias Mitigation Panel ── -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header py-3" style="background:linear-gradient(135deg,#6a1a5e,#b53d80);">
+        <h5 class="mb-0 text-white fw-semibold"><i class="bi bi-tools me-2"></i>Bias Mitigation</h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="mitigate">
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-muted small">Base Model</label>
+            <select class="form-select" name="mitigate_model_id" required>
+              <option value="">— Select Model —</option>
+              {% for v in versions %}
+                <option value="{{ v.id }}">{{ v.name }} ({{ v.version }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-muted small">Protected Attribute</label>
+            <select class="form-select" name="mit_protected_attribute">
+              <option value="sex">Gender (sex)</option>
+              <option value="age_group">Age Group (age_group)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-muted small">Mitigation Strategy</label>
+            <select class="form-select" name="strategy">
+              <option value="reweighting">Reweighting (Preprocessing)</option>
+              <option value="threshold_optimization">Threshold Optimization (Postprocessing)</option>
+            </select>
+          </div>
+          <button class="btn w-100 text-white fw-semibold" style="background:linear-gradient(135deg,#6a1a5e,#b53d80);" type="submit">
+            <i class="bi bi-wrench-adjustable me-1"></i> Apply Bias Mitigation
+          </button>
+        </form>
+
+        {% if mitigation_result %}
+        <hr>
+        <h6 class="fw-bold mt-3 text-secondary">Mitigation Trade-off</h6>
+        <div class="alert alert-info border-0 small">
+          {{ mitigation_result.comparison.trade_off_summary }}
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-0">
+            <thead class="table-light"><tr><th>Metric</th><th>Baseline</th><th>Mitigated</th><th>Δ</th></tr></thead>
+            <tbody>
+              {% for metric, vals in mitigation_result.comparison.metric_deltas.items %}
+              <tr>
+                <td class="small fw-semibold">{{ metric|title|replace:"_," }}</td>
+                <td class="small text-center">{{ vals.baseline }}</td>
+                <td class="small text-center">{{ vals.mitigated }}</td>
+                <td class="small text-center fw-bold {% if vals.delta > 0 %}text-success{% elif vals.delta < 0 %}text-danger{% endif %}">
+                  {{ vals.delta|floatformat:4 }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
