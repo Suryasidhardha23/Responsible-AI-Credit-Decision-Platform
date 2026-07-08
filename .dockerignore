@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.py[cod]
+*.pyo
+.pytest_cache
+.venv
+venv
+
+# Environment secrets
+.env
+
+# IDE / editor files
+.vscode
+.idea
+*.swp
+
+# Local SQLite database
+db.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test artefacts
+htmlcov
+.coverage
+coverage.xml
+
+# Docs
+*.md
+docs/
+
+# Node (if ever added)
+node_modules

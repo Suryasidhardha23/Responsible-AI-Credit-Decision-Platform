@@ -1,23 +1,59 @@
 {% extends 'base.html' %}
-{% block title %}Login{% endblock %}
+{% block title %}Sign In - Responsible AI Credit Platform{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-6">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h2 class="h4">Sign in</h2>
-        <form method="post">
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 150px);">
+  <div class="col-md-5">
+    <div class="card shadow border-0" style="border-radius: 16px; overflow: hidden;">
+      <div style="background: linear-gradient(135deg, var(--brand-navy) 0%, #1a6b8a 100%); padding: 2rem; text-align: center;" class="text-white">
+        <i class="bi bi-shield-lock-fill text-info fs-1"></i>
+        <h3 class="mt-2 fw-bold">Sign In</h3>
+        <p class="text-white-50 mb-0 small">Access the Enterprise Responsible AI Credit Platform</p>
+      </div>
+      <div class="card-body p-4 p-md-5">
+
+        {% if error %}
+          <div class="alert alert-danger d-flex align-items-center gap-2 rounded-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+            <span>{{ error }}</span>
+          </div>
+        {% endif %}
+
+        <form method="post" novalidate>
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label">Username</label>
-            <input type="text" name="username" class="form-control" required>
+            <label class="form-label text-muted small fw-semibold" for="id_username">Username</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-0"><i class="bi bi-person text-muted"></i></span>
+              <input type="text" id="id_username" name="username" class="form-control bg-light border-0"
+                     placeholder="Enter username" required autocomplete="username"
+                     style="border-radius: 0 8px 8px 0;">
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Password</label>
-            <input type="password" name="password" class="form-control" required>
+          <div class="mb-4">
+            <label class="form-label text-muted small fw-semibold" for="id_password">Password</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-0"><i class="bi bi-key text-muted"></i></span>
+              <input type="password" id="id_password" name="password" class="form-control bg-light border-0"
+                     placeholder="Enter password" required autocomplete="current-password"
+                     style="border-radius: 0 8px 8px 0;">
+            </div>
           </div>
-          <button class="btn btn-primary" type="submit">Login</button>
+          <div class="d-grid mb-3">
+            <button class="btn btn-brand py-2 shadow-sm" type="submit" id="btn-signin">
+              <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+            </button>
+          </div>
         </form>
+
+        <div class="text-center mt-4">
+          <p class="small text-muted mb-0">
+            Don't have an account?
+            <a href="{% url 'register' %}" class="text-decoration-none fw-bold" style="color: var(--brand-teal);">
+              Register here
+            </a>
+          </p>
+        </div>
+
       </div>
     </div>
   </div>

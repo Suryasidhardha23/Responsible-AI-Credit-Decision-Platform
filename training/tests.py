@@ -16,6 +16,9 @@ from training.explainability_service import SHAPExplainabilityService
 from training.fairness_service import FairnessAuditService
 from training.models import ModelVersion
 from training.services import ModelTrainingService
+from training.bias_mitigation_service import BiasMitigationService
+from training.report_service import ReportService
+from prediction.models import PredictionRecord
 
 
 class ModelTrainingServiceTestCase(TestCase):
@@ -385,3 +388,183 @@ class ModelComparisonServiceTestCase(TestCase):
         # Best model should be first
         self.assertEqual(ranked[0][0], self.model2)
         self.assertEqual(ranked[1][0], self.model1)
+
+
+class BiasMitigationAndReportServiceTestCase(TestCase):
+    """Test bias mitigation and report generation services."""
+
+    def setUp(self):
+        self.user = UserProfile.objects.create_user(
+            username='mitigationuser',
+            email='mitigation@example.com',
+            password='testpass123',
+            role='admin',
+        )
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.dataset_path = Path(self.temp_dir.name) / 'mitigation_data.csv'
+
+        # Generate some synthetic data with direct and indirect bias
+        np.random.seed(42)
+        n_samples = 150
+        sex_col = np.random.choice(['male', 'female'], n_samples)
+        # Indirect proxy variable
+        zip_col = []
+        for s in sex_col:
+            if s == 'male':
+                zip_col.append(np.random.choice(['A', 'B'], p=[0.8, 0.2]))
+            else:
+                zip_col.append(np.random.choice(['A', 'B'], p=[0.2, 0.8]))
+        
+        # Target with some correlation to sex to simulate bias
+        target_col = []
+        for s in sex_col:
+            if s == 'male':
+                target_col.append(np.random.choice([0, 1], p=[0.3, 0.7]))
+            else:
+                target_col.append(np.random.choice([0, 1], p=[0.7, 0.3]))
+
+        data = {
+            'age': np.random.randint(18, 70, n_samples),
+            'income': np.random.randint(15000, 120000, n_samples),
+            'sex': sex_col,
+            'zip_code': zip_col,
+            'target': target_col,
+        }
+        df = pd.DataFrame(data)
+        df.to_csv(self.dataset_path, index=False)
+
+        # Train a model version first
+        training_service = ModelTrainingService()
+        result = training_service.train_model(
+            str(self.dataset_path),
+            'target',
+            algorithm='logistic_regression',
+        )
+
+        self.dataset = UploadedDataset.objects.create(
+            name='Mitigation Dataset',
+            file_name=self.dataset_path.name,
+            file_path=str(self.dataset_path),
+            row_count=n_samples,
+            column_count=len(df.columns),
+            target_column='target',
+            is_valid=True,
+        )
+
+        self.model_version = ModelVersion.objects.create(
+            version='v2.1',
+            name='Mitigation Test Model',
+            algorithm='logistic_regression',
+            created_by=self.user,
+            dataset=self.dataset,
+            target_column='target',
+            artifact_path=result['artifact_path'],
+            preprocessing_pipeline_path=result['preprocessing_pipeline_path'],
+            accuracy=result['metrics']['accuracy'],
+            precision=result['metrics']['precision'],
+            recall=result['metrics']['recall'],
+            f1_score=result['metrics']['f1_score'],
+            roc_auc=result['metrics']['roc_auc'],
+            pr_auc=result['metrics']['pr_auc'],
+            cv_score_mean=result['cv_results']['accuracy_mean'],
+            cv_score_std=result['cv_results']['accuracy_std'],
+            feature_importance=result['feature_importance'],
+            hyperparameters=result['hyperparameters'],
+        )
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_bias_mitigation_reweighting(self):
+        mitigation_service = BiasMitigationService(artifact_dir=self.temp_dir.name)
+        result = mitigation_service.mitigate(
+            dataset_path=str(self.dataset_path),
+            target_column='target',
+            protected_attribute='sex',
+            algorithm='logistic_regression',
+            strategy='reweighting',
+        )
+
+        self.assertEqual(result['strategy'], 'reweighting')
+        self.assertEqual(result['protected_attribute'], 'sex')
+        self.assertEqual(result['algorithm'], 'logistic_regression')
+        self.assertIn('baseline_metrics', result)
+        self.assertIn('mitigated_metrics', result)
+        self.assertIn('comparison', result)
+        self.assertTrue(Path(result['artifact_path']).exists())
+
+    def test_bias_mitigation_threshold_optimization(self):
+        mitigation_service = BiasMitigationService(artifact_dir=self.temp_dir.name)
+        result = mitigation_service.mitigate(
+            dataset_path=str(self.dataset_path),
+            target_column='target',
+            protected_attribute='sex',
+            algorithm='logistic_regression',
+            strategy='threshold_optimization',
+        )
+
+        self.assertEqual(result['strategy'], 'threshold_optimization')
+        self.assertEqual(result['protected_attribute'], 'sex')
+        self.assertIn('baseline_metrics', result)
+        self.assertIn('mitigated_metrics', result)
+        self.assertIn('comparison', result)
+
+    def test_report_generation(self):
+        # Create a mock PredictionRecord
+        record = PredictionRecord.objects.create(
+            applicant_name='Jane Doe',
+            prediction='Approved',
+            probability=0.85,
+            shap_explanation=[
+                {'feature': 'income', 'value': 75000, 'shap_value': 0.12},
+                {'feature': 'age', 'value': 34, 'shap_value': -0.05},
+            ],
+            input_features={'income': 75000, 'age': 34},
+            fairness_context={
+                'explanation': 'This decision is verified for demographic parity.',
+                'fairness_metrics': {
+                    'demographic_parity_difference': 0.02,
+                    'disparate_impact_ratio': 0.95,
+                }
+            },
+            model_version=self.model_version,
+            created_by=self.user,
+        )
+
+        report_service = ReportService()
+        
+        # 1. Test Prediction Report
+        pred_pdf = report_service.generate_prediction_report(
+            prediction_record=record,
+            shap_explanation=record.shap_explanation,
+            fairness_context=record.fairness_context,
+            model_version=self.model_version,
+        )
+        self.assertGreater(len(pred_pdf), 0)
+        self.assertEqual(pred_pdf[:4], b'%PDF')
+
+        # 2. Test Model Card
+        card_pdf = report_service.generate_model_card(self.model_version)
+        self.assertGreater(len(card_pdf), 0)
+        self.assertEqual(card_pdf[:4], b'%PDF')
+
+        # 3. Test Fairness Audit Report
+        audit_result = {
+            'protected_attribute': 'sex',
+            'metrics': {
+                'demographic_parity_difference': 0.05,
+                'disparate_impact_ratio': 0.92,
+            },
+            'explanations': [
+                {'label': 'Demographic Parity Difference', 'text': 'Small difference of 5%.'}
+            ],
+            'proxy_analysis': {
+                'zip_code': {
+                    'correlation_with_protected_attribute': 0.45,
+                    'risk_level': 'high'
+                }
+            }
+        }
+        audit_pdf = report_service.generate_fairness_audit_report(self.model_version, audit_result)
+        self.assertGreater(len(audit_pdf), 0)
+        self.assertEqual(audit_pdf[:4], b'%PDF')

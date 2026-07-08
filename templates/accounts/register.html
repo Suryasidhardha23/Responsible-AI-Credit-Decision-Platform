@@ -1,16 +1,53 @@
 {% extends 'base.html' %}
-{% block title %}Register{% endblock %}
+{% block title %}Create Account - Responsible AI Credit Platform{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 150px); padding: 2rem 0;">
   <div class="col-md-6">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h2 class="h4">Create account</h2>
-        <form method="post">
+    <div class="card shadow border-0" style="border-radius: 16px; overflow: hidden;">
+      <div style="background: linear-gradient(135deg, var(--brand-navy) 0%, #1a6b8a 100%); padding: 2rem; text-align: center;" class="text-white">
+        <i class="bi bi-person-plus-fill text-info fs-1"></i>
+        <h3 class="mt-2 font-weight-bold">Register Account</h3>
+        <p class="text-white-50 mb-0 small">Create your profile to access datasets, models, or credit scoring</p>
+      </div>
+      <div class="card-body p-4 p-md-5">
+        <form method="post" novalidate>
           {% csrf_token %}
-          {{ form.as_p }}
-          <button class="btn btn-success" type="submit">Register</button>
+          
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+              {% for error in form.non_field_errors %}
+                {{ error }}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label text-muted small fw-semibold d-flex justify-content-between">
+                <span>{{ field.label }}</span>
+                {% if field.field.required %}<span class="text-danger small">*</span>{% endif %}
+              </label>
+              {{ field }}
+              {% if field.help_text %}
+                <div class="form-text text-muted" style="font-size: 0.75rem;">{{ field.help_text|safe }}</div>
+              {% endif %}
+              {% if field.errors %}
+                <div class="text-danger small mt-1">
+                  {% for error in field.errors %}
+                    <i class="bi bi-exclamation-circle-fill me-1"></i>{{ error }}
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+
+          <div class="d-grid mt-4 mb-3">
+            <button class="btn btn-brand py-2.5 shadow-sm" type="submit">Create Account</button>
+          </div>
         </form>
+        <div class="text-center mt-4">
+          <p class="small text-muted mb-0">Already have an account? <a href="{% url 'login' %}" class="text-decoration-none fw-bold" style="color: var(--brand-teal);">Sign In here</a></p>
+        </div>
       </div>
     </div>
   </div>

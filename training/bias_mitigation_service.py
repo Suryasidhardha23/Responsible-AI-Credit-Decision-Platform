@@ -52,6 +52,24 @@ ALGORITHM_DEFAULT_PARAMS = {
 }
 
 
+class OptimizedWrapper:
+    """Wrapper class for threshold optimizer that can be pickled."""
+    def __init__(self, prep, opt):
+        self._prep = prep
+        self._opt = opt
+
+    def predict(self, X, sensitive_features=None):
+        Xt = self._prep.transform(X)
+        if sensitive_features is None:
+            # Predict without sensitive features (fallback)
+            return self._opt.estimator_.predict(Xt)
+        return self._opt.predict(Xt, sensitive_features=sensitive_features)
+
+    def predict_proba(self, X):
+        Xt = self._prep.transform(X)
+        return self._opt.estimator_.predict_proba(Xt)
+
+
 class BiasMitigationService:
     """Implements reweighting and threshold optimisation bias-mitigation strategies."""
 
@@ -284,23 +302,7 @@ class BiasMitigationService:
             optimizer.fit(X_train_t, y_train, sensitive_features=s_train)
 
             # Wrap in a callable pipeline-like object
-            class OptimizedWrapper:
-                def __init__(self, prep, opt, sens_train):
-                    self._prep = prep
-                    self._opt = opt
-
-                def predict(self, X, sensitive_features=None):
-                    Xt = self._prep.transform(X)
-                    if sensitive_features is None:
-                        # Predict without sensitive features (fallback)
-                        return self._opt.estimator_.predict(Xt)
-                    return self._opt.predict(Xt, sensitive_features=sensitive_features)
-
-                def predict_proba(self, X):
-                    Xt = self._prep.transform(X)
-                    return self._opt.estimator_.predict_proba(Xt)
-
-            wrapper = OptimizedWrapper(preprocessor, optimizer, s_train)
+            wrapper = OptimizedWrapper(preprocessor, optimizer)
             return wrapper, None
 
         except ImportError:

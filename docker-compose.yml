@@ -1,19 +1,79 @@
 version: '3.9'
+
+# ──────────────────────────────────────────────────────────────
+# Responsible AI Credit Decision Platform - Docker Compose
+# Services: web (Django/Gunicorn), nginx (reverse proxy), db (Postgres)
+# ──────────────────────────────────────────────────────────────
+
 services:
-  web:
-    build: .
-    command: gunicorn responsible_ai_platform.wsgi:application --bind 0.0.0.0:8000
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      - db
+
+  # ── PostgreSQL Database ──────────────────────────────────────
   db:
-    image: postgres:16
+    image: postgres:16-alpine
+    container_name: rai_platform_db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: responsible_ai
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME:-responsible_ai}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-responsible_ai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Django Application (Gunicorn) ────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rai_platform_web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn responsible_ai_platform.wsgi:application
+             --bind 0.0.0.0:8000
+             --workers 4
+             --timeout 120
+             --keep-alive 5
+             --log-level info
+             --access-logfile -
+             --error-logfile -"
+
+  # ── Nginx Reverse Proxy ──────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: rai_platform_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_data:/app/staticfiles:ro
+      - media_data:/app/media:ro
+    depends_on:
+      - web
+
+# ── Named Volumes ────────────────────────────────────────────
+volumes:
+  postgres_data:
+  media_data:
+  static_data:
